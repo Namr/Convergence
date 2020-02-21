@@ -51,7 +51,7 @@ fn main() {
     let shape = vec![vertex1, vertex2, vertex3, vertex4];
 
     let vertex_buffer = glium::VertexBuffer::new(&window.display, &shape).unwrap();
-    let palate = vec![(0.0f32, 0.0, 1.0), (0.0, 1.0, 0.0), (0.0, 0.0, 0.0)];
+    let palate = vec![(0.0f32, 0.0, 1.0), (0.0, 0.0, 0.0)];
     let texture =
         glium::texture::srgb_texture1d::SrgbTexture1d::new(&window.display, palate).unwrap();
 
@@ -69,6 +69,12 @@ fn main() {
         #version 140
         in vec2 Pos;
         out vec4 color;
+
+        uniform float fractal_x0;
+        uniform float fractal_xf;
+        uniform float fractal_y0;
+        uniform float fractal_yf;
+
         uniform sampler1D palate;
 
         float random (vec2 st) {
@@ -82,8 +88,8 @@ fn main() {
 
         void main() {
             //scale pos to fit frame
-            float x0 = map(Pos.x, -1.0, 1.0, -2.5, 1.0);
-            float y0 = map(Pos.y, -1.0, 1.0, -1.0, 1.0);
+            float x0 = map(Pos.x, -1.0, 1.0, fractal_x0, fractal_xf);
+            float y0 = map(Pos.y, -1.0, 1.0, fractal_y0, fractal_yf);
 
             float x = 0;
             float y = 0;
@@ -96,7 +102,7 @@ fn main() {
                 iteration++;
             }
 
-            color = texture(palate, float(iteration) / float(max_iteration));
+            color = texture(palate, log(float(iteration)) / log(float(max_iteration)));
             //color = vec4(float(iteration) / float(max_iteration), float(iteration) / float(max_iteration), float(iteration) / float(max_iteration), 1.0);
         }
     "#;
@@ -109,6 +115,14 @@ fn main() {
     )
     .unwrap();
 
+    let mut x_dist: f32 = 1.75;
+    let mut x_mid: f32 = -0.75;
+    let mut y_dist: f32 = 1.0;
+    let mut y_mid: f32 = 0.0;
+
+    let mut move_speed: f32 = 0.01;
+    let zoom_speed: f32 = 0.8;
+
     //main loop
     let mut closed = false;
     while !closed {
@@ -118,11 +132,48 @@ fn main() {
                 glutin::Event::WindowEvent { event, .. } => match event {
                     // Handle window close event.
                     glutin::WindowEvent::CloseRequested => closed = true,
+                    glutin::WindowEvent::KeyboardInput { input, .. } => match input {
+                        glutin::KeyboardInput {
+                            state: glutin::ElementState::Pressed,
+                            virtual_keycode,
+                            ..
+                        } => match virtual_keycode {
+                            Some(glutin::VirtualKeyCode::W) => {
+                                y_mid += move_speed;
+                            }
+                            Some(glutin::VirtualKeyCode::S) => {
+                                y_mid -= move_speed;
+                            }
+                            Some(glutin::VirtualKeyCode::A) => {
+                                x_mid -= move_speed;
+                            }
+                            Some(glutin::VirtualKeyCode::D) => {
+                                x_mid += move_speed;
+                            }
+                            Some(glutin::VirtualKeyCode::Q) => {
+                                x_dist *= zoom_speed;
+                                y_dist *= zoom_speed;
+                                move_speed *= zoom_speed;
+                            }
+                            Some(glutin::VirtualKeyCode::E) => {
+                                x_dist *= 1.0 + zoom_speed;
+                                y_dist *= 1.0 + zoom_speed;
+                                move_speed *= 1.0 + zoom_speed;
+                            }
+                            _ => (),
+                        },
+                        _ => (),
+                    },
                     _ => (),
                 },
                 _ => (),
             }
         });
+
+        let mut fractal_x0: f32 = x_mid - x_dist;
+        let mut fractal_xf: f32 = x_mid + x_dist;
+        let mut fractal_y0: f32 = y_mid - y_dist;
+        let mut fractal_yf: f32 = y_mid + y_dist;
 
         let mut target = window.display.draw();
         target.clear_color(0.0, 0.0, 1.0, 1.0);
@@ -132,7 +183,7 @@ fn main() {
                 &vertex_buffer,
                 &glium::index::NoIndices(glium::index::PrimitiveType::TriangleFan),
                 &program,
-                &glium::uniform! {palate: texture.sampled().minify_filter(glium::uniforms::MinifySamplerFilter::Linear)},
+                &glium::uniform! {palate: texture.sampled().minify_filter(glium::uniforms::MinifySamplerFilter::Linear), fractal_x0: fractal_x0, fractal_xf: fractal_xf, fractal_y0: fractal_y0, fractal_yf: fractal_yf},
                 &Default::default(),
             )
             .unwrap();
