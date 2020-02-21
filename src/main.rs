@@ -51,7 +51,7 @@ fn main() {
     let shape = vec![vertex1, vertex2, vertex3, vertex4];
 
     let vertex_buffer = glium::VertexBuffer::new(&window.display, &shape).unwrap();
-    let palate = vec![(0.0f32, 0.0, 1.0), (0.0, 0.0, 0.0)];
+    let palate = vec![(0.0f32, 0.0, 1.0), (1.0, 0.0, 1.0), (0.0, 0.0, 0.0)];
     let texture =
         glium::texture::srgb_texture1d::SrgbTexture1d::new(&window.display, palate).unwrap();
 
@@ -120,9 +120,15 @@ fn main() {
     let mut y_dist: f32 = 1.0;
     let mut y_mid: f32 = 0.0;
 
-    let mut move_speed: f32 = 0.01;
-    let zoom_speed: f32 = 0.8;
+    let mut move_speed: f32 = 0.04;
+    let zoom_speed: f32 = 0.95;
 
+    let mut is_moving_left = false;
+    let mut is_moving_right = false;
+    let mut is_moving_up = false;
+    let mut is_moving_down = false;
+    let mut is_zooming_in = false;
+    let mut is_zooming_out = false;
     //main loop
     let mut closed = false;
     while !closed {
@@ -134,31 +140,27 @@ fn main() {
                     glutin::WindowEvent::CloseRequested => closed = true,
                     glutin::WindowEvent::KeyboardInput { input, .. } => match input {
                         glutin::KeyboardInput {
-                            state: glutin::ElementState::Pressed,
+                            state,
                             virtual_keycode,
                             ..
                         } => match virtual_keycode {
                             Some(glutin::VirtualKeyCode::W) => {
-                                y_mid += move_speed;
+                                is_moving_up = state == glutin::ElementState::Pressed;
                             }
                             Some(glutin::VirtualKeyCode::S) => {
-                                y_mid -= move_speed;
+                                is_moving_down = state == glutin::ElementState::Pressed;
                             }
                             Some(glutin::VirtualKeyCode::A) => {
-                                x_mid -= move_speed;
+                                is_moving_left = state == glutin::ElementState::Pressed;
                             }
                             Some(glutin::VirtualKeyCode::D) => {
-                                x_mid += move_speed;
+                                is_moving_right = state == glutin::ElementState::Pressed;
                             }
                             Some(glutin::VirtualKeyCode::Q) => {
-                                x_dist *= zoom_speed;
-                                y_dist *= zoom_speed;
-                                move_speed *= zoom_speed;
+                                is_zooming_in = state == glutin::ElementState::Pressed;
                             }
                             Some(glutin::VirtualKeyCode::E) => {
-                                x_dist *= 1.0 + zoom_speed;
-                                y_dist *= 1.0 + zoom_speed;
-                                move_speed *= 1.0 + zoom_speed;
+                                is_zooming_out = state == glutin::ElementState::Pressed;
                             }
                             _ => (),
                         },
@@ -170,6 +172,29 @@ fn main() {
             }
         });
 
+        //input handling part 2
+        if is_moving_up {
+            y_mid += move_speed;
+        }
+        if is_moving_down {
+            y_mid -= move_speed;
+        }
+        if is_moving_left {
+            x_mid -= move_speed;
+        }
+        if is_moving_right {
+            x_mid += move_speed;
+        }
+        if is_zooming_in {
+            x_dist *= zoom_speed;
+            y_dist *= zoom_speed;
+            move_speed *= zoom_speed;
+        }
+        if is_zooming_out {
+            x_dist /= zoom_speed;
+            y_dist /= zoom_speed;
+            move_speed /= zoom_speed;
+        }
         let mut fractal_x0: f32 = x_mid - x_dist;
         let mut fractal_xf: f32 = x_mid + x_dist;
         let mut fractal_y0: f32 = y_mid - y_dist;
